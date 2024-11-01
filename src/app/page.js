@@ -1,101 +1,272 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from "react";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [allData, setAllData] = useState([]);
+  const [data, setData] = useState([]);
+  const [categoryData, setCategoryData] = useState([]);
+  const [newItem, setNewItem] = useState("");
+  const [category, setCategory] = useState("");
+  const [buttonEnabled, setButtonEnabled] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("");
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+  const fetchData = async () => {
+    try {
+      const response = await fetch(`/api/view-items`);
+      const result = await response.json();
+      setAllData(result.items || []);
+      setData(result.items || []);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const fetchCatgories = async () => {
+    try {
+      const response = await fetch("/api/item-categories");
+      const result = await response.json();
+      setCategoryData(result.categories || []);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+    fetchCatgories();
+  }, []);
+
+  const handleCategoryFilter = (e) => {
+    const selectedCategory = e.target.value;
+    setSelectedCategory(selectedCategory);
+
+    if (selectedCategory === "all") {
+      setData(allData);
+    } else {
+      const filtered = allData.filter((item) => item.category === selectedCategory);
+      setData(filtered);
+    }
+  };
+
+  useEffect(() => {
+    setButtonEnabled(newItem.trim().length > 0);
+  }, [newItem]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/add-item", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ newItem, category }),
+      });
+
+      if (response.ok) {
+        setNewItem("");
+        fetchData();
+      } else {
+        const errorData = await response.json();
+        console.error(errorData.error || "Failed to add item.");
+      }
+    } catch (error) {
+      console.error("Error submitting item:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      const response = await fetch(`/api/delete-item`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id }),
+      });
+
+      if (response.ok) {
+        fetchData();
+      } else {
+        const errorData = await response.json();
+        console.error(errorData.error || "Failed to delete item.");
+      }
+    } catch (error) {
+      console.error("Error deleting item:", error);
+    }
+  };
+
+  return (
+    <div className="container">
+      <h1 className="title">To-Do List</h1>
+
+      <select name="filterCategory" value={selectedCategory} onChange={handleCategoryFilter}>
+        <option value="all">All</option>
+        {categoryData.map((categoryObj, index) => (
+          <option key={index} value={categoryObj.category}>{categoryObj.category}</option>
+        ))}
+      </select>
+
+      {data.length < 1 ? (
+        <h3 style={{ marginBottom: "100px" }}>
+          No items in the list. Add a new item to get started!
+        </h3>
+      ) : (
+        <ul>
+          {data.map((item, index) => (
+            <li key={index}>
+              {item.name}
+              <button onClick={() => handleDelete(item.id)} className="delete-btn">Delete</button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <form onSubmit={handleSubmit}>
+        <input
+          type="text"
+          placeholder="Input item"
+          name="newItem"
+          value={newItem}
+          onChange={(e) => setNewItem(e.target.value)}
+        />
+
+        <label>Select a category:</label>
+        {/* <select name="category" value={category} onChange={(e) => setCategory(e.target.value)}>
+          {categoryData.map((categoryObj, index) => (
+            <option key={index} value={categoryObj.category}>{categoryObj.category}</option>
+          ))}
+        </select> */}
+        <select name="category" value={category} onChange={(e) => setCategory(e.target.value)}>
+          <option className="select2" value="normal lining">Normal Lining</option>
+          <option className="select2" value="thick lining">Thick lining</option>
+          <option className="select2" value="thread">Thread</option>
+          <option className="select2" value="bridal satin">Bridal satin</option>
+          <option className="select2" value="normal satin">Normal satin</option>
+          <option className="select2" value="jacket zip">Jacket zip</option>
+          <option className="select2" value="uniform">Uniform</option>
+        </select>
+
+        <button type="submit" disabled={!buttonEnabled || loading}>
+          {loading ? "Loading..." : "Add item"}
+        </button>
+      </form>
+
+      <style jsx>{`
+  .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: #ffffff;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 400px;
+    margin: auto;
+    position : relative;
+  }
+
+  ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 20px 0;
+    width: 100%;
+    max-height : 390px;
+    overflow-y : auto;
+  }
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    margin-bottom: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    font-size: 16px;
+    transition: background-color 0.3s;
+  }
+
+  li:hover {
+    background-color: #e2e6ea;
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+
+  input[type="text"] {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+    width: 100%;
+  }
+
+  select {
+    padding : 10px;
+  }
+
+  .select2 {
+    font-style : italic;
+    margin : 5px 0;
+  }
+
+  button {
+    padding: 10px;
+    font-size: 16px;
+    color: #ffffff;
+    background-color: #007bff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+
+  button:disabled {
+    background-color: #d3d3d3;
+    cursor: not-allowed;
+  }
+
+  button:hover:not(:disabled) {
+    background-color: #0056b3;
+  }
+
+  .delete-btn {
+    padding: 5px 10px;
+    font-size: 14px;
+    color: #ffffff;
+    background-color: #dc3545;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+
+  .delete-btn:hover {
+    background-color: #c82333;
+  }
+
+  h3 {
+    text-align: center;
+    color: #555;
+  }
+`}</style>
+
+
     </div>
   );
 }
